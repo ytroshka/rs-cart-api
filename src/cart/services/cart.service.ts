@@ -1,55 +1,75 @@
 import { Injectable } from '@nestjs/common';
-
-import { v4 } from 'uuid';
-
-import { Cart } from '../models';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Cart } from '../entities/carts.entity';
+import { CartItem } from '../entities/cart-items.entity';
 
 @Injectable()
 export class CartService {
-  private userCarts: Record<string, Cart> = {};
+  constructor(
+    @InjectRepository(Cart)
+    private readonly cartRepository: Repository<Cart>,
+    @InjectRepository(CartItem)
+    private readonly cartItemRepository: Repository<CartItem>,
+  ) {}
 
-  findByUserId(userId: string): Cart {
-    return this.userCarts[ userId ];
+  async findByUserId(userId: string): Promise<Cart> {
+    console.log('CartService findByUserId', userId);
+
+    return this.cartRepository.findOne({
+      where: { userId },
+      relations: ['items'],
+    });
   }
 
-  createByUserId(userId: string) {
-    const id = v4(v4());
-    const userCart = {
-      id,
-      items: [],
-    };
+  async createByUserId(userId: string): Promise<Cart> {
+    console.log('CartService createByUserId', userId);
+    const newCart = new Cart();
+    newCart.userId = userId;
+    newCart.createdAt = new Date();
+    newCart.updatedAt = new Date();
+    newCart.status = 'OPEN';
 
-    this.userCarts[ userId ] = userCart;
-
-    return userCart;
+    return this.cartRepository.save(newCart);
   }
 
-  findOrCreateByUserId(userId: string): Cart {
-    const userCart = this.findByUserId(userId);
+  async findOrCreateByUserId(userId: string): Promise<Cart> {
+    console.log('CartService findOrCreateByUserId', userId);
+    const userCart = await this.findByUserId(userId);
 
     if (userCart) {
       return userCart;
     }
 
-    return this.createByUserId(userId);
+    return await this.createByUserId(userId);
   }
 
-  updateByUserId(userId: string, { items }: Cart): Cart {
-    const { id, ...rest } = this.findOrCreateByUserId(userId);
+  async updateByUserId(userId: string, cartData: Partial<Cart>): Promise<Cart> {
+    console.log('CartService updateByUserId', userId, cartData);
 
-    const updatedCart = {
-      id,
-      ...rest,
-      items: [ ...items ],
+    const cart = await this.findOrCreateByUserId(userId);
+
+    cart.updatedAt = new Date();
+    cart.items = [...cartData.items];
+
+    return this.cartRepository.save(cart);
+  }
+
+  async removeByUserId(userId): Promise<Cart> {
+    console.log('CartService removeByUserId', userId);
+
+    const cart = await this.cartRepository.findOne({
+      where: { userId },
+      relations: ['items'],
+    });
+
+    if (!cart) {
+      throw new Error(`Cart not found for user with id: ${userId}`);
     }
 
-    this.userCarts[ userId ] = { ...updatedCart };
+    cart.status = 'ORDERED';
+    cart.updatedAt = new Date();
 
-    return { ...updatedCart };
+    return this.cartRepository.save(cart);
   }
-
-  removeByUserId(userId): void {
-    this.userCarts[ userId ] = null;
-  }
-
 }

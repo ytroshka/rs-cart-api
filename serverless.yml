@@ -1,6 +1,7 @@
 service: serverless-cart-api
 
 plugins:
+  - serverless-dotenv-plugin
   - serverless-offline
 
 provider:

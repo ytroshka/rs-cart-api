@@ -7,7 +7,7 @@ export class CartItem {
   @JoinColumn({ name: 'cart_id', referencedColumnName: 'id' })
   cart: Cart;
 
-  @Column({ name: 'product_id', type: 'uuid', primary: true })
+  @Column({ name: 'product_id', type: 'uuid' })
   productId: string;
 
   @Column({ type: 'integer' })
